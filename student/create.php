@@ -11,57 +11,46 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$fullName = $_POST['full_name'] ?? null;
-$groupId  = $_POST['group_id'] ?? null;
+$fullName = $_POST['fullName'] ?? null;
+$groupId  = $_POST['groupId'] ?? null;
 
 // Проверка на наличие ФИО
-if (!$fullName) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'full_name is required']);
-    exit;
-}
+requiredParams([$fullName, $groupId], 'fullName and groupId are required');
 
 try {
-    // Если group_id пустой — пишем NULL
-    if ($groupId === '') {
-        $groupId = null;
+    // Существует ли такая группа
+    $sql = "SELECT * FROM `groups` WHERE id = ?";
+    $stmt = executeQuery($pdo, $sql, [$groupId]);
+    $group = $stmt->fetch();
+
+    if (!$group) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $groupId not found"
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
     // SQL запрос
-    $sql = "INSERT INTO students (full_name, group_id) VALUES (:full_name, :group_id)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':full_name', $fullName, PDO::PARAM_STR);
-
-    if ($groupId === null) {
-        $stmt->bindValue(':group_id', null, PDO::PARAM_NULL);
-    } else {
-        $stmt->bindValue(':group_id', (int)$groupId, PDO::PARAM_INT);
-    }
-
-    $stmt->execute(); // Вызываем
+    $sql = "INSERT INTO `students` (full_name, group_id) VALUES (?, ?)";
+    $stmt = executeQuery($pdo, $sql, [$fullName, $groupId]);
 
     // Получаем ID только что добавленного студента
     $newId = $pdo->lastInsertId();
 
     http_response_code(201); // Создан
     echo json_encode([
-        'status' => 'ok',
-        'id'     => $newId,
-        'full_name' => $fullName,
-        'group_id'  => $groupId,
+        'success' => true,
+        'rows' => "Student $newId created"
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) { //  Если ошибка
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):
-// curl -X POST -d "full_name=Новый Студент&group_id=1" http://localhost/projects/student/create.php
+// curl -X POST -d "fullName=Новый Студент&groupId=1" http://localhost/projects/student/create.php

@@ -11,70 +11,61 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$id = $_POST['id'] ?? null;
-$fullName = $_POST['full_name'] ?? null;
-$groupId  = $_POST['group_id'] ?? null;
+$studentId = $_POST['studentId'] ?? null;
+$fullName = $_POST['fullName'] ?? null;
+$groupId  = $_POST['groupId'] ?? null;
 
 // Проверка на наличие id
-if (!$id) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'Student ID is required']);
-    exit;
-}
+requiredParams([$studentId, $groupId], 'studentId and groupId are required');
 
 try {
     // 1. Существует ли такой студент
     $sql = "SELECT * FROM students WHERE id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$id]); // Вызываем и подставляем id вместо знака вопроса
+    $stmt = executeQuery($pdo, $sql, [$studentId]);
     $student = $stmt->fetch();
 
     if (!$student) {
         http_response_code(404);
-        echo json_encode(['error' => 'Student not found']);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Student $studentId not found"
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    // 2. Готовим данные для обновления
+    // 2. Существует ли такая группа
+    $sql = "SELECT * FROM `groups` WHERE id = ?";
+    $stmt = executeQuery($pdo, $sql, [$groupId]);
+    $group = $stmt->fetch();
+
+    if (!$group) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $groupId not found"
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // 3. Готовим данные для обновления
     // Если нет нового имени, оставляем старое
     $newName = $fullName ?: $student['full_name'];
 
-    // Если нет group_id, оставляем старый.
-    if ($groupId === null) {
-        $newGroupId = $student['group_id'];
-    } elseif ($groupId === '') {
-        $newGroupId = null;
-    } else {
-        $newGroupId = (int)$groupId;
-    }
-
-    // 3. Выполняем сам UPDATE
+    // 4. Выполняем сам UPDATE
     $sql = "UPDATE students SET full_name = ?, group_id = ? WHERE id = ?";
-    $updateStmt = $pdo->prepare($sql);
-
-    $updateStmt->execute([$newName, $newGroupId, $id]); // Вызываем
+    $stmt = executeQuery($pdo, $sql, [$newName, $groupId, $studentId]);
 
     echo json_encode([
-        'status' => 'ok',
-        'message' => 'Student updated',
-        'id' => $id,
-        'new_data' => [
-            'full_name' => $newName,
-            'group_id' => $newGroupId
-        ]
+        'success' => true,
+        'rows' => "Student $studentId updated"
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) { //  Если ошибка
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):
-// curl -X POST -d "id=1&full_name=Обновлено&group_id=2" http://localhost/projects/student/update.php
+// curl -X POST -d "studentId=29&fullName=Обновлено&groupId=2" http://localhost/projects/student/update.php

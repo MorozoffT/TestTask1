@@ -11,38 +11,36 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$groupId = $_POST['group_id'] ?? null;
+$groupId = $_POST['groupId'] ?? null;
 
 // Проверка на наличие id группы
-if (!$groupId) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'Group id is required']);
-    exit;
-}
+requiredParams([$groupId], 'groupId is required');
 
 try {
     // Обнуляем группу у всех студентов этой группы
     $sql = "UPDATE students SET group_id = NULL WHERE group_id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$groupId]);
+    $stmt = executeQuery($pdo, $sql, [$groupId]);
 
     $count = $stmt->rowCount();
+    if ($count > 0) {
+        $rows = "Removed $count students from group $groupId";
+        $success = true;
+    } else {
+        $rows = "Group $groupId is empty or does not exist";
+        $success = false;
+    }
 
     echo json_encode([
-        'status'  => 'ok',
-        'message' => "Removed $count students from group $groupId"
-    ]);
+        'success' => $success,
+        'rows' => $rows
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) { //  Если ошибка
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):
-// curl -X POST -d "group_id=1" http://localhost/projects/group/deleteStudents.php
+// curl -X POST -d "groupId=1" http://localhost/projects/group/deleteStudents.php

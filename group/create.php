@@ -11,37 +11,38 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
+// Примечание: использование ?? удобнее, ибо если в получаемом массиве есть
+//             искомые ключи (title и course), то они запишутся в соответствующие
+//             переменные, в ином случае в них запишутся значения null,
+//             которые после будут проверены.
 $title  = $_POST['title'] ?? null;
 $course = $_POST['course'] ?? null;
 
 // Проверка на наличие названия и курса
-if (!$title || !$course) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'title and course are required']);
-    exit;
-}
+// Примечание: Соответственно данная проверка. Если одно из значений будет равно
+//             null или пустой строке (именно поэтому используется !, а не is_null,
+//             дабы не дать возможность создать группу с пустым названием) условие
+//             выполнится и выведется ошибка.
+requiredParams([$title, $course], 'title and course are required');
 
 try {
     // SQL запрос
     $sql = "INSERT INTO `groups` (title, course) VALUES (?, ?)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$title, $course]); // Вызываем и подставляем название и курс вместо знака вопроса
+    $stmt = executeQuery($pdo, $sql, [$title, $course]);
 
+    $newId = $pdo->lastInsertId();
+
+    http_response_code(201); // Создана
     echo json_encode([
-        'status' => 'ok',
-        'id' => $pdo->lastInsertId(),
-        'title' => $title
+        'success' => true,
+        'rows' => "Group $newId created"
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) { //  Если ошибка
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):

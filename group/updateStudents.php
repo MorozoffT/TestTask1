@@ -11,39 +11,52 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$fromGroupId = $_POST['from_group_id'] ?? null; // Откуда забираем
-$toGroupId   = $_POST['to_group_id'] ?? null;   // Куда переводим
+$fromGroupId = $_POST['fromGroupId'] ?? null; // Откуда забираем
+$toGroupId   = $_POST['toGroupId'] ?? null;   // Куда переводим
 
 // Проверка на наличие id групп
-if (!$fromGroupId  || !$toGroupId) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'from_group_id and to_group_id are required']);
-    exit;
-}
+requiredParams([$fromGroupId, $toGroupId], 'fromGroupId and toGroupId are required');
 
 try {
+    $sql = "SELECT * FROM `groups` WHERE id = ?";
+    $stmt = executeQuery($pdo, $sql, [$fromGroupId]);
+    $fromGroup = $stmt->fetch();
+    $sql = "SELECT * FROM `groups` WHERE id = ?";
+    $stmt = executeQuery($pdo, $sql, [$toGroupId]);
+    $toGroup = $stmt->fetch();
+
+    if (!$fromGroup) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $fromGroupId not found"
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    } elseif (!$toGroup) {
+        http_response_code(404);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $toGroupId not found"
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     // Выполняем обновление
     $sql = "UPDATE students SET group_id = ? WHERE group_id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$toGroupId, $fromGroupId]); // Вызываем
-
+    $stmt = executeQuery($pdo, $sql, [$toGroupId, $fromGroupId]);
     $count = $stmt->rowCount(); // Сколько студентов было затронуто
 
     echo json_encode([
-        'status'  => 'ok',
-        'message' => "Moved $count students from group $fromGroupId to group $toGroupId"
-    ]);
+        'success' => true,
+        'rows' => "Moved $count students from group $fromGroupId to group $toGroupId"
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) { //  Если ошибка
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):
-// curl -X POST -d "from_group_id=1&to_group_id=2" http://localhost/projects/group/updateStudents.php
+// curl -X POST -d "fromGroupId=1&toGroupId=2" http://localhost/projects/group/updateStudents.php

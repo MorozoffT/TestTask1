@@ -11,39 +11,33 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$id = $_POST['id'] ?? null;
+$id = $_POST['groupId'] ?? null;
 
-// Проверка на наличие названия и курса
-if (!$id) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'id is required']);
-    exit;
-}
+// Проверка на наличие id
+requiredParams([$id], 'groupId is required');
 
 try {
     // SQL запрос
     $sql = "DELETE FROM `groups` WHERE id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$id]); // Вызываем
+    $stmt = executeQuery($pdo, $sql, [$id]);
 
     if ($stmt->rowCount() > 0) {
         echo json_encode([
-            'status' => 'ok',
-            'message' => 'Group deleted'
-        ]);
+            'success' => true,
+            'rows' => "Group $id deleted"
+        ], JSON_UNESCAPED_UNICODE);
     } else {
-        echo json_encode(['error' => 'Group not found']);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $id not found"
+        ], JSON_UNESCAPED_UNICODE);
     }
 
 } catch (Exception $e) { //  Если ошибка
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):

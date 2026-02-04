@@ -11,34 +11,28 @@ require_once __DIR__ . '/../include.php';
 header('Content-Type: application/json');
 
 // Разрешаем только POST-запросы
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Метод не разрешён
-    echo json_encode(['error' => 'Only POST method is allowed']);
-    exit;
-}
+checkMethod('POST');
 
 // Получаем данные из POST
-$id = $_POST['id'] ?? null;
+$id = $_POST['groupId'] ?? null;
 $title = $_POST['title'] ?? null;
 $course = $_POST['course'] ?? null;
 
 // Проверка на наличие id
-if (!$id) {
-    http_response_code(400); // Плохой запрос
-    echo json_encode(['error' => 'id is required']);
-    exit;
-}
+requiredParams([$id], 'groupId is required');
 
 try {
     // 1. Существует ли такая группа
     $sql = "SELECT * FROM `groups` WHERE id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$id]); // Вызываем и подставляем id вместо знака вопроса
+    $stmt = executeQuery($pdo, $sql, [$id]);
     $group = $stmt->fetch();
 
     if (!$group) {
         http_response_code(404);
-        echo json_encode(['error' => 'Group not found']);
+        echo json_encode([
+            'success' => false,
+            'rows' => "Group $id not found"
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -49,17 +43,16 @@ try {
 
     // 3. Выполняем сам UPDATE
     $sql = "UPDATE `groups` SET title = ?, course = ? WHERE id = ?";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$newTitle, $newCourse, $id]);
+    $stmt = executeQuery($pdo, $sql, [$newTitle, $newCourse, $id]);
 
     echo json_encode([
-        'status' => 'ok',
-        'message' => 'Group updated'
-    ]);
+        'success' => true,
+        'rows' => "Group $id updated"
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) { //  Если ошибка
-    echo json_encode(['error' => $e->getMessage()]);
+    logError($e->getMessage(), basename(__FILE__));
 }
 
 // Пример использования (в терминале):
-// curl -X POST -d "id=2&title=КС-26-03" http://localhost/projects/group/update.php
+// curl -X POST -d "groupId=2&title=КС-26-03" http://localhost/projects/group/update.php
