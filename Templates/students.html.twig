@@ -1,0 +1,15 @@
+<h3>Список студентов группы {{ group_name }}</h3>
+<table border="1" cellpadding="5">
+    <tr bgcolor="#f0f0f0">
+        <th width="15%" align="center"><b>ID</b></th>
+        <th width="85%"><b>ФИО</b></th>
+    </tr>
+
+    {% for student in students %}
+        <tr>
+            <td width="15%" align="center">{{ student.getId() }}</td>
+            <td width="85%">{{ student.getFullname() }}</td>
+        </tr>
+    {% endfor %}
+
+</table>
