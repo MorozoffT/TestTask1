@@ -12,7 +12,7 @@ class GroupController
 
     public function __construct($entityManager)
     {
-        $this->groupService= new GroupService($entityManager);
+        $this->groupService = new GroupService($entityManager);
     }
 
     public function create(Request $request): void
