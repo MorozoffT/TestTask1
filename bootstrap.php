@@ -7,12 +7,6 @@ use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 require_once "vendor/autoload.php";
 
-//function sendFailure($e): void
-//{
-//    echo json_encode(['success' => false, 'rows' => $e]);
-//    die;
-//}
-
 function getEntityManager(): EntityManager
 {
 
@@ -54,11 +48,13 @@ function logError(string $message, string $scriptName = ''): void
     $logEntry = "[{$timestamp}] {$context}Error: {$message}" . PHP_EOL;
 
     file_put_contents($logFile, $logEntry, FILE_APPEND);
+}
 
-//    echo json_encode([
-//        'success' => false,
-//        'rows' => [
-//            'error' => $message
-//        ]
-//    ], JSON_UNESCAPED_UNICODE);
+function errorOutputToUser($e): void
+{
+    echo json_encode([
+        'success' => false,
+        'code' => $e->getCode(),
+        'rows' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }

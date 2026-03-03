@@ -4,23 +4,27 @@ namespace app\Entities;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\Mapping\GeneratedValue;
+use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\OneToMany;
+use Doctrine\ORM\Mapping\Table;
 
-#[ORM\Entity]
-#[ORM\Table(name: 'student_groups')]
+#[Entity]
+#[Table(name: 'student_groups')]
 class Group implements \JsonSerializable
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column(name: 'id', type: 'integer')]
-    private ?int $id = null;
+    #[Id]
+    #[GeneratedValue]
+    #[Column(name: 'id', type: 'integer')]
+    private int $id;
 
-    #[ORM\Column(name: 'title', type: 'string')]
-    private ?string $title;
+    #[Column(name: 'title', type: 'string')]
+    private string $title;
 
-    #[ORM\Column(name: 'course', type: 'integer')]
-    private ?string $course;
+    #[Column(name: 'course', type: 'integer')]
+    private int $course;
 
     #[OneToMany(mappedBy: 'group', targetEntity: Student::class)]
     private Collection $students;
@@ -40,34 +44,47 @@ class Group implements \JsonSerializable
         return $this;
     }
 
-    public function getId(): ?int
+    public function getId(): int
     {
         return $this->id;
     }
 
-    public function getTitle(): ?string
+    public function getTitle(): string
     {
         return $this->title;
     }
 
-    public function getCourse(): ?string
+    public function getCourse(): int
     {
         return $this->course;
     }
 
-    public function setTitle(string $newTitle): self
+    public function setTitle(?string $newTitle): self
     {
-        $this->title = $newTitle;
+        if (!is_null($newTitle)) {
+            $this->title = $newTitle;
+        }
         return $this;
     }
 
-    public function setCourse(string $newCourse): self
+    public function setCourse(?string $newCourse): self
     {
-        $this->course = $newCourse;
+        if (!is_null($newCourse)) {
+            $this->course = $newCourse;
+        }
         return $this;
     }
 
-    public function jsonSerialize(): mixed
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'course' => $this->course,
+        ];
+    }
+
+    public function toArray(): array
     {
         return [
             'id' => $this->id,

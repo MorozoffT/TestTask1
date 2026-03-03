@@ -4,6 +4,7 @@ namespace app\Controllers;
 
 use app\Services\StudentService;
 use app\Utils\Request;
+use app\Dto\StudentDto;
 
 class StudentController
 {
@@ -11,37 +12,29 @@ class StudentController
 
     public function __construct($entityManager)
     {
-        $this->studentService= new StudentService($entityManager);
+        $this->studentService = new StudentService($entityManager);
     }
 
     public function create(Request $request): void
     {
-        $fullName = $request->getParamFromBody('fullName', true);
-        $groupId = $request->getParamFromBody('groupId', true);
-
-        $this->studentService->create($fullName, $groupId);
+        $this->studentService->create(
+            $request->getParamFromBody('fullName', true),
+            $request->getParamFromBody('groupId', true)
+        );
     }
 
     public function delete(Request $request): void
     {
-        $studentId = $request->getParamFromBody('studentId', true);
-
-        $this->studentService->delete($studentId);
+        $this->studentService->delete($request->getParamFromBody('studentId', true));
     }
 
-    public function get(Request $request): void
+    public function get(Request $request): array
     {
-        $studentId = $request->getParamFromBody('studentId');
-
-        $this->studentService->get($studentId);
+        return $this->studentService->get($request->getParam('studentId'));
     }
 
     public function update(Request $request): void
     {
-        $studentId = $request->getParamFromBody('studentId', true);
-        $groupId = $request->getParamFromBody('groupId', true);
-        $fullName = $request->getParamFromBody('fullName');
-
-        $this->studentService->update($studentId, $groupId, $fullName);
+        $this->studentService->update($request->completeStudentDto(new StudentDto()));
     }
 }

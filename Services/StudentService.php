@@ -2,9 +2,13 @@
 
 namespace app\Services;
 
+use app\Dto\StudentDto;
 use app\Entities\Student;
 use app\Entities\Group;
+use app\Utils\MyException;
 use Doctrine\ORM\EntityManager;
+
+require_once __DIR__ . '/../Utils/ExistenceChecker.php';
 
 class StudentService
 {
@@ -15,80 +19,75 @@ class StudentService
         $this->entityManager = $entityManager;
     }
 
-    public function create(string $fullName, $groupId): void
+    public function create(string $fullName, int $groupId): void
     {
-        $group = $this->entityManager->getRepository(Group::class)->find($groupId);
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $group = existenceGroupChecker($this->entityManager, $groupId);
 
-        if (!is_null($group)) {
-            $newStudent = new Student();
-            $newStudent->setFullName($fullName);
-            $newStudent->setGroup($group);
+            $newStudent = (new Student())
+                ->setFullName($fullName)
+                ->setGroup($group);
 
             $this->entityManager->persist($newStudent);
             $this->entityManager->flush();
-        } else {
-            echo json_encode([
-                'success' => false,
-                'rows' => "group $groupId not exist"
-            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
     }
 
-    public function delete(string $studentId): void
+    public function delete(int $studentId): void
     {
-        $student = $this->entityManager->find(Student::class, $studentId);
-        if (is_null($student)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Student $studentId not found"
-            ]);
-            exit;
-        }
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $student = existenceStudentChecker($this->entityManager, $studentId);
 
-        $this->entityManager->remove($student);
-        $this->entityManager->flush();
+            $this->entityManager->remove($student);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 
-    public function get(string $studentId = null): void
+    public function get(int $studentId = null): array
     {
-        $repository = $this->entityManager->getRepository(Student::class);
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $repository = $this->entityManager->getRepository(Student::class);
 
-        if (is_null($studentId)) {
-            $rows = $repository->findAll();
-        } else {
-            $rows = $repository->findBy(['id' => $studentId]);
+            if (is_null($studentId)) {
+                $rows = $repository->findAll();
+            } else {
+                $rows = existenceStudentChecker($this->entityManager, $studentId)->toArray();
+            }
+
+            return $rows;
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
-
-        echo json_encode([
-            'success' => true,
-            'rows' => $rows
-        ], JSON_UNESCAPED_UNICODE);
     }
 
-    public function update(string $studentId, string $groupId, string $fullName = null): void
+    public function update(StudentDto $studentDto): void
     {
-        $student = $this->entityManager->find(Student::class, $studentId);
-        if (is_null($student)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Student $studentId not found"
-            ]);
-            exit;
-        }
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId not found"
-            ]);
-            exit;
-        }
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $student = existenceStudentChecker($this->entityManager, $studentDto->getId());
+            $group = existenceGroupChecker($this->entityManager, $studentDto->getGroupId());
 
-        $student->setGroup($group);
-        if (!is_null($fullName)) {
-            $student->setFullName($fullName);
-        }
+            $student->setGroup($studentDto->getGroupId());
+            $student->setFullName($studentDto->getFullName());
 
-        $this->entityManager->flush();
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 }

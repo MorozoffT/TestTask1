@@ -1,14 +1,9 @@
 <?php
 
 use app\Utils\Request;
+use app\Utils\MyException;
 
 require_once __DIR__ . '/cli-config.php';
-
-// Отдаём JSON
-header('Content-Type: application/json');
-//ini_set('display_errors', 1);
-//ini_set('display_startup_errors', 1);
-//error_reporting(E_ALL);
 
 try {
     $request = new Request();
@@ -17,13 +12,20 @@ try {
     $controllerName = 'app\\Controllers\\' . $act . 'Controller';
     $controller = new $controllerName($entityManager);
     $method  = $request->getParam('method', true);
-    $controller->$method($request);
+    $answer = $controller->$method($request);
 
+    if (!is_null($answer)) {
+        echo json_encode([
+            'success' => true,
+            'rows' => $answer,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+} catch (MyException $e) {
+    logError($e->getMessage(), basename(__FILE__));
+    errorOutputToUser($e);
 
 } catch (\Throwable $t) {
-    echo json_encode([
-        'success' => false,
-        'rows' => "bad request"
-    ], JSON_UNESCAPED_UNICODE);
     logError($t->getMessage(), basename(__FILE__));
+    errorOutputToUser($t);
 }

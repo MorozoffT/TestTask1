@@ -2,12 +2,15 @@
 
 namespace app\Services;
 
+use app\Dto\GroupDto;
 use app\Entities\Group;
+use app\Utils\MyException;
 use Doctrine\ORM\EntityManager;
 use Twig\Loader\FilesystemLoader;
 use Twig\Environment;
 use TCPDF;
 
+require_once __DIR__ . '/../Utils/ExistenceChecker.php';
 
 class GroupService
 {
@@ -19,163 +22,164 @@ class GroupService
     }
 
 
-    public function create(string $title, string $course): void
+    public function create(string $title, int $course): void
     {
-        $newGroup = new Group();
-        $newGroup->setTitle($title);
-        $newGroup->setCourse($course);
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $newGroup = (new Group())
+                ->setTitle($title)
+                ->setCourse($course);
 
-        $this->entityManager->persist($newGroup);
-        $this->entityManager->flush();
-    }
-
-    public function delete(string $groupId): void
-    {
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId does not exists"
-            ]);
-            exit;
-        }
-
-        $this->entityManager->remove($group);
-        $this->entityManager->flush();
-    }
-
-    public function deleteStudents(string $groupId): void
-    {
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId does not exists"
-            ]);
-            exit;
-        }
-
-        $students = $group->getStudents();
-        foreach ($students as $student) {
-            $student->setGroup(null);
+            $this->entityManager->persist($newGroup);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
     }
 
-    public function get(string $groupId = null): void
+    public function delete(int $groupId): void
     {
-        $repository = $this->entityManager->getRepository(Group::class);
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $group = existenceGroupChecker($this->entityManager, $groupId);
 
-        if (is_null($groupId)) {
-            $rows = $repository->findAll();
-        } else {
-            $rows = $repository->findBy(['id' => $groupId]);
+            $this->entityManager->remove($group);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
-
-        echo json_encode([
-            'success' => true,
-            'rows' => $rows
-        ], JSON_UNESCAPED_UNICODE);
     }
 
-    public function getStudents(string $groupId): void
+    public function deleteStudents(int $groupId): void
     {
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $group = existenceGroupChecker($this->entityManager, $groupId);
 
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId does not exists"
-            ]);
-            exit;
+            $students = $group->getStudents();
+            foreach ($students as $student) {
+                $student->setGroup(null);
+            }
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
-
-        $students = $group->getStudents()->toArray();
-
-
-        echo json_encode([
-            'success' => true,
-            'rows' => $students
-        ], JSON_UNESCAPED_UNICODE);
     }
 
-    public function update(string $groupId, string $title = null, string $course = null): void
+    public function get(int $groupId = null): array
     {
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId does not exists"
-            ]);
-            exit;
-        }
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $repository = $this->entityManager->getRepository(Group::class);
 
-        if (!is_null($title)) {
-            $group->setTitle($title);
-        }
-        if (!is_null($course)) {
-            $group->setCourse($course);
-        }
+            if (is_null($groupId)) {
+                $rows = $repository->findAll();
+            } else {
+                $rows = existenceGroupChecker($this->entityManager, $groupId)->toArray();
+            }
 
-        $this->entityManager->flush();
+            return $rows;
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 
-    public function updateStudents(string $fromGroupId, string $toGroupId): void
+    public function getStudents(int $groupId): array
     {
-        $fromGroup = $this->entityManager->find(Group::class, $fromGroupId);
-        if (is_null($fromGroup)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $fromGroupId does not exists"
-            ]);
-            exit;
-        }
-        $toGroup = $this->entityManager->find(Group::class, $toGroupId);
-        if (is_null($toGroup)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $toGroupId does not exists"
-            ]);
-            exit;
-        }
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $group = existenceGroupChecker($this->entityManager, $groupId);
 
-        $students = $fromGroup->getStudents();
-        foreach ($students as $student) {
-            $student->setGroup($toGroup);
+            return $group->getStudents()->toArray();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
-
-        $this->entityManager->flush();
     }
 
-    public function getAllStudentsToPDF(string $groupId): void
+    public function update(GroupDto $groupDto): void
     {
-        $group = $this->entityManager->find(Group::class, $groupId);
-        if (is_null($group)) {
-            echo json_encode([
-                'success' => false,
-                'rows' => "Group $groupId does not exists"
-            ]);
-            exit;
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $group = existenceGroupChecker($this->entityManager, $groupDto->getId());
+
+            $group->setTitle($groupDto->getTitle());
+            $group->setCourse($groupDto->getCourseNumber());
+
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
         }
-        $students = $group->getStudents()->toArray();
+    }
 
-        $loader = new FilesystemLoader(__DIR__ . '/../Templates');
-        $twig = new Environment($loader);
-        $html = $twig->render('students.html.twig', [
-            'group_name' => $group->getTitle(),
-            'students'   => $students
-        ]);
+    public function updateStudents(int $fromGroupId, int $toGroupId): void
+    {
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $fromGroup = existenceGroupChecker($this->entityManager, $fromGroupId);
+            $toGroup = existenceGroupChecker($this->entityManager, $toGroupId);
 
-        $pdf = new TCPDF();
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->AddPage();
+            $students = $fromGroup->getStudents();
+            foreach ($students as $student) {
+                $student->setGroup($toGroup);
+            }
 
-        $pdf->SetFont('dejavusans', '', 12);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
+    }
 
-        $pdf->writeHTML($html, true, false, true, false, '');
+    public function createStudentsListPDF(int $groupId): void
+    {
+        $conn = $this->entityManager->getConnection();
+        $conn->beginTransaction();
+        try {
+            $qb = $this->entityManager->createQueryBuilder();
+            $qb->select('g')
+                ->from(Group::class, 'g')
+                ->where("g.id = $groupId");
+            $group = $qb->getQuery()->getOneOrNullResult();
 
-        $fileName = 'group_' . $group->getTitle() . '.pdf';
-        $pdf->Output($fileName, 'D');
-        exit;
+            if (is_null($group)) {
+                throw new MyException('Группа не существует.');
+            }
+            $students = $group->getStudents()->toArray();
+
+            $loader = new FilesystemLoader(__DIR__ . '/../Templates');
+            $twig = new Environment($loader);
+            $html = $twig->render('students.html.twig', [
+                'group_name' => $group->getTitle(),
+                'students'   => $students
+            ]);
+
+            $pdf = new TCPDF();
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->AddPage();
+
+            $pdf->SetFont('dejavusans', '', 12);
+
+            $pdf->writeHTML($html, true, false, true, false, '');
+
+            $fileName = 'group_' . $group->getTitle() . '.pdf';
+            $pdf->Output($fileName, 'D');
+            exit;
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            throw $e;
+        }
     }
 }

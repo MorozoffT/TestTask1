@@ -2,6 +2,7 @@
 
 namespace app\Controllers;
 
+use app\Dto\GroupDto;
 use app\Services\GroupService;
 use app\Utils\Request;
 
@@ -16,61 +17,52 @@ class GroupController
 
     public function create(Request $request): void
     {
-        $title = $request->getParamFromBody('title', true);
-        $course = $request->getParamFromBody('course', true);
-
-        $this->groupService->create($title, $course);
+        $this->groupService->create(
+            $request->getParamFromBody('title', true),
+            $request->getParamFromBody('course', true)
+        );
     }
 
     public function delete(Request $request): void
     {
-        $groupId = $request->getParamFromBody('groupId', true);
-
-        $this->groupService->delete($groupId);
+        $this->groupService->delete($request->getParamFromBody('groupId', true));
     }
 
     public function deleteStudents(Request $request): void
     {
-        $groupId = $request->getParamFromBody('groupId', true);
-
-        $this->groupService->deleteStudents($groupId);
+        $this->groupService->deleteStudents($request->getParamFromBody('groupId', true));
     }
 
-    public function get(Request $request): void
+    public function get(Request $request): array
     {
-        $groupId = $request->getParamFromBody('groupId');
-
-        $this->groupService->get($groupId);
+        return $this->groupService->get($request->getParam('groupId'));
     }
 
     public function getStudents(Request $request): void
     {
-        $groupId = $request->getParamFromBody('groupId', true);
-
-        $this->groupService->getStudents($groupId);
+        $this->groupService->getStudents($request->getParamFromBody('groupId', true));
     }
 
     public function update(Request $request): void
     {
-        $groupId = $request->getParamFromBody('groupId', true);
-        $title = $request->getParamFromBody('title');
-        $course = $request->getParamFromBody('course');
+        $group = (new GroupDto())
+            ->setId($request->getParamFromBody('groupId', true))
+            ->setTitle($request->getParamFromBody('title', true))
+            ->setCourseNumber($request->getParamFromBody('course', true));
 
-        $this->groupService->update($groupId, $title, $course);
+        $this->groupService->update($group);
     }
 
     public function updateStudents(Request $request): void
     {
-        $fromGroupId = $request->getParamFromBody('fromGroupId', true);
-        $toGroupId = $request->getParamFromBody('toGroupId', true);
-
-        $this->groupService->updateStudents($fromGroupId, $toGroupId);
+        $this->groupService->updateStudents(
+            $request->getParamFromBody('fromGroupId', true),
+            $request->getParamFromBody('toGroupId', true)
+        );
     }
 
-    public function getAllStudentsToPDF(Request $request): void
+    public function createStudentsListPDF(Request $request): void
     {
-        $groupId = $request->getParam('groupId', true);
-
-        $this->groupService->getAllStudentsToPDF($groupId);
+        $this->groupService->createStudentsListPDF($request->getParam('groupId', true));
     }
 }

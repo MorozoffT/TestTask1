@@ -2,35 +2,36 @@
 
 namespace app\Entities;
 
-use app\Repository\StudentRepository;
-use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\Mapping\GeneratedValue;
+use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
+use Doctrine\ORM\Mapping\Table;
 
-#[ORM\Entity(repositoryClass: StudentRepository::class)]
-#[ORM\Table(name: 'students')]
+#[Entity]
+#[Table(name: 'students')]
 class Student implements \JsonSerializable
 {
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
-    private ?int $id = null;
+    #[Id]
+    #[GeneratedValue]
+    #[Column]
+    private int $id;
 
-    #[ORM\Column(name: 'full_name', type: 'string')]
-    private ?string $fullName;
-
-    // #[ORM\Column(name: 'group_id', type: 'integer')]
+    #[Column(name: 'full_name', type: 'string')]
+    private string $fullName;
 
     #[ManyToOne(targetEntity: Group::class, inversedBy: 'students')]
     #[JoinColumn(name: 'group_id', referencedColumnName: 'id', nullable: true)]
     private ?Group $group;
 
-    public function getId(): ?int
+    public function getId(): int
     {
         return $this->id;
     }
 
-    public function getFullName(): ?string
+    public function getFullName(): string
     {
         return $this->fullName;
     }
@@ -40,19 +41,32 @@ class Student implements \JsonSerializable
         return $this->group;
     }
 
-    public function setFullName(string $newFullName): self
+    public function setFullName(?string $newFullName): self
     {
-        $this->fullName = $newFullName;
+        if (!is_null($newFullName)) {
+            $this->fullName = $newFullName;
+        }
         return $this;
     }
 
     public function setGroup($newGroup): self
     {
-        $this->group = $newGroup;
+        if (!(is_null($newGroup))) {
+            $this->group = $newGroup;
+        }
         return $this;
     }
 
-    public function jsonSerialize(): mixed
+    public function jsonSerialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'full_name' => $this->fullName,
+            'group_id' => $this->group->getId(),
+        ];
+    }
+
+    public function toArray(): array
     {
         return [
             'id' => $this->id,
